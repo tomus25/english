@@ -198,30 +198,53 @@ export default function LandingFindTeacher() {
   const goalToggle = (key: string) => setGoals((prev) => (prev.includes(key) ? prev.filter((g) => g !== key) : [...prev, key]));
 
   function onMatch() {
-    if (!consent) return; // страховка: без согласия не отправляем
+    if (!consent) return; // без согласия не отправляем
+
+    // Берём только минимально необходимое: имя, способ связи + контакт, и краткое описание
+    const contactValue = method === "email" ? email : contact;
     const payload = {
-      studentName: name,
-      goals,
-      description: desc,
+      studentName: name || "",
+      description: desc || "",
       preferredMethod: method,
-      contact,
-      email,
-      budget: budget ? Number(budget) : null,
-      currency,
-      teacher: { name: teacher.name, telegram: teacher.socials.telegram, whatsapp: teacher.socials.whatsapp, instagram: teacher.socials.instagram, group: (teacher as any).socials?.group || "https://t.me/alena_346st" },
-      cookieConsent,
+      contact: contactValue || "",
+      teacher: {
+        name: teacher.name,
+        telegram: teacher.socials.telegram,
+        group: (teacher as any).socials?.group || "https://t.me/alena_346st",
+      },
     };
-    setLoading(true); setSubmitted(true);
+
+    setLoading(true);
+    setSubmitted(true);
+
     const scrollToMatch = () => {
-      // даём React смонтировать блок, потом плавно скроллим к нему
       requestAnimationFrame(() => {
-        const el = document.getElementById('match');
-        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById("match")?.scrollIntoView({ behavior: "smooth", block: "start" });
       });
     };
-    fetch("/api/lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
-      .then(() => { setMatched(teacher); scrollToMatch(); })
-      .catch(() => { setMatched(teacher); scrollToMatch(); })
+
+    fetch("/api/lead", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (resp) => {
+        let data: any = null;
+        try { data = await resp.json(); } catch {}
+        if (!resp.ok) {
+          // Показать причину прямо пользователю, чтобы понимать, что именно не так
+          const msg = data?.error?.description || JSON.stringify(data) || "Неизвестная ошибка Telegram";
+          alert("Не удалось отправить в Telegram: " + msg);
+          console.error("Telegram send failed", data);
+        }
+        setMatched(teacher);
+        scrollToMatch();
+      })
+      .catch((e) => {
+        console.error(e);
+        setMatched(teacher);
+        scrollToMatch();
+      })
       .finally(() => setLoading(false));
   }
 
