@@ -1,6 +1,5 @@
-// app/api/lead/route.ts
-import { NextRequest, NextResponse } from "next/server";
-export const runtime = "nodejs"; // чтобы точно был Node на Vercel
+// pages/api/lead.ts
+import type { NextApiRequest, NextApiResponse } from "next";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const CHAT_ID   = process.env.TELEGRAM_CHAT_ID!;
@@ -18,23 +17,19 @@ function contactUrl(method: string, contact: string) {
   return null;
 }
 
-export async function POST(req: NextRequest) {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") return res.status(405).json({ ok:false, error:"Method not allowed" });
   try {
-    if (!BOT_TOKEN || !CHAT_ID) {
-      return NextResponse.json({ ok:false, error:"Missing env TELEGRAM_*" }, { status: 500 });
-    }
+    if (!BOT_TOKEN || !CHAT_ID) return res.status(500).json({ ok:false, error:"Missing env TELEGRAM_*" });
 
-    const body = await req.json();
-    // ТЫ теперь шлёшь только эти поля:
     const {
       studentName = "",
       description = "",
       preferredMethod = "telegram",
       contact = "",
       teacher = { name: "", telegram: "", group: "" },
-    } = body ?? {};
+    } = req.body ?? {};
 
-    // Сборка текста
     const lines = [
       `<b>🧑‍🎓 Новая заявка</b>`,
       `Имя: <b>${esc(studentName) || "—"}</b>`,
@@ -53,7 +48,7 @@ export async function POST(req: NextRequest) {
     if (teacher?.telegram) keyboardRow.push({ text: "Преподаватель (TG)", url: `https://t.me/${String(teacher.telegram).replace(/^@/,"")}` });
     if (teacher?.group)    keyboardRow.push({ text: "Группа", url: String(teacher.group) });
 
-    const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const tg = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type":"application/json" },
       body: JSON.stringify({
@@ -65,31 +60,18 @@ export async function POST(req: NextRequest) {
       }),
     });
 
-    const raw = await tgResp.text();
-    let tgJson: any = null;
-    try { tgJson = JSON.parse(raw); } catch {}
+    const raw = await tg.text();
+    let json: any = null;
+    try { json = JSON.parse(raw); } catch {}
 
-    if (!tgResp.ok || !tgJson?.ok) {
-      console.error("Telegram sendMessage FAILED:", { status: tgResp.status, raw });
-      return NextResponse.json({ ok:false, error: tgJson?.description || raw || "Failed to send to Telegram" }, { status: 502 });
+    if (!tg.ok || !json?.ok) {
+      console.error("Telegram sendMessage FAILED:", { status: tg.status, raw });
+      return res.status(502).json({ ok:false, error: json?.description || raw || "Failed to send to Telegram" });
     }
 
-    return NextResponse.json({ ok:true });
+    return res.status(200).json({ ok:true });
   } catch (e: any) {
-    console.error("API /api/lead error:", e);
-    return NextResponse.json({ ok:false, error:"Server error" }, { status: 500 });
+    console.error(e);
+    return res.status(500).json({ ok:false, error:"Server error" });
   }
 }
-
-// Временный пинг для диагностики (можно удалить после проверки)
-/*
-export async function GET() {
-  const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type":"application/json" },
-    body: JSON.stringify({ chat_id: CHAT_ID, text: "ping from vercel" }),
-  });
-  const raw = await resp.text();
-  return new NextResponse(raw, { status: resp.status, headers: { "Content-Type":"application/json" } });
-}
-*/
