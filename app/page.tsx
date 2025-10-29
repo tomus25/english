@@ -1,4 +1,5 @@
 'use client';
+
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Sparkles, Rocket, Check, Star, Instagram, Send, Phone, X } from "lucide-react";
