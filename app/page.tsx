@@ -90,10 +90,10 @@ const SAMPLE_TEACHERS = [
       instagram: "@alena.proenglish",
       website: "",
       whatsapp: "79807291107",
-      telegram: "@alena_346st",
+      telegram: "@hellen_valley",
+      group: "https://t.me/alena_346st"
     },
-    photo:
-      "https://cdn.profi.ru/xfiles/pfiles/2d6385c4d6cb4399b50cd6d33f785d18.jpg-profi_a34-240.jpg",
+    photo: "https://i.ibb.co/hJp3T1YH/1716003141-567508.jpg",
     rating: 5.0,
     levels: ["A2", "B1", "B2", "C1"],
   },
@@ -111,7 +111,7 @@ function formatTelegramHref(handle: string | undefined) {
 
 const DEV_TESTS = (() => { try {
   console.assert(formatWhatsAppHref("+7 980 729-11-07").endsWith("79807291107"), "WA format failed");
-  console.assert(formatTelegramHref("@alena_346st").endsWith("alena_346st"), "TG format failed");
+  console.assert(formatTelegramHref("@hellen_valley").endsWith("hellen_valley"), "TG format failed");
   console.assert(Array.isArray(CURRENCIES) && CURRENCIES.some(c=>c.code==='RUB'), 'Currencies must include RUB');
   console.assert(!CURRENCIES.some(c=>c.code==='UAH'), 'UAH must be removed from currencies');
   console.assert(Number("1200") === 1200, 'Budget numeric conversion failed');
@@ -198,6 +198,7 @@ export default function LandingFindTeacher() {
   const goalToggle = (key: string) => setGoals((prev) => (prev.includes(key) ? prev.filter((g) => g !== key) : [...prev, key]));
 
   function onMatch() {
+    if (!consent) return; // страховка: без согласия не отправляем
     const payload = {
       studentName: name,
       goals,
@@ -207,13 +208,20 @@ export default function LandingFindTeacher() {
       email,
       budget: budget ? Number(budget) : null,
       currency,
-      teacher: { name: teacher.name, telegram: teacher.socials.telegram, whatsapp: teacher.socials.whatsapp, instagram: teacher.socials.instagram },
+      teacher: { name: teacher.name, telegram: teacher.socials.telegram, whatsapp: teacher.socials.whatsapp, instagram: teacher.socials.instagram, group: (teacher as any).socials?.group || "https://t.me/alena_346st" },
       cookieConsent,
     };
     setLoading(true); setSubmitted(true);
+    const scrollToMatch = () => {
+      // даём React смонтировать блок, потом плавно скроллим к нему
+      requestAnimationFrame(() => {
+        const el = document.getElementById('match');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+    };
     fetch("/api/lead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) })
-      .then(() => setMatched(teacher))
-      .catch(() => setMatched(teacher))
+      .then(() => { setMatched(teacher); scrollToMatch(); })
+      .catch(() => { setMatched(teacher); scrollToMatch(); })
       .finally(() => setLoading(false));
   }
 
@@ -250,7 +258,7 @@ export default function LandingFindTeacher() {
         </p>
 
         {/* Преимущества — делаем пиллы на светлом фоне, чтобы не "сливались" */}
-        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm">
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-3 text-sm">
           <span className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 text-slate-700">
             <Check className="h-4 w-4"/>Первое знакомство — бесплатно
           </span>
@@ -282,7 +290,7 @@ export default function LandingFindTeacher() {
               <label className="mb-3 block text-sm font-medium">Твои цели</label>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {GOALS.map((g) => (
-                  <label key={g.key} className="flex items-center gap-2 rounded-xl border p-3 hover:bg-accent">
+                  <label key={g.key} className="flex items-center gap-2 rounded-xl border p-3 hover:bg-amber-50">
                     <Checkbox checked={goals.includes(g.key)} onCheckedChange={() => goalToggle(g.key)} />
                     <span>{g.label}</span>
                   </label>
@@ -363,7 +371,7 @@ export default function LandingFindTeacher() {
   const match = (
     <AnimatePresence>
       {submitted && (
-        <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4 }} className="mx-auto max-w-5xl px-4 pb-24">
+        <motion.section id="match" className="mx-auto max-w-5xl px-4 pb-24">
           <div className="mb-6 text-center">
             <h2 className="text-3xl font-bold">Мы нашли преподавателя, который тебе подойдёт!</h2>
             <p className="mt-2 text-muted-foreground">Он свяжется с тобой в течение 24 часов. Также можешь связаться напрямую ниже.</p>
@@ -413,6 +421,11 @@ export default function LandingFindTeacher() {
                   <Button className="rounded-md" onClick={()=>window.open(formatTelegramHref(matched?.socials.telegram),"_blank")}>Написать в Telegram</Button>
                   <Button variant="outline" className="rounded-md" onClick={()=>window.open(formatWhatsAppHref(matched?.socials.whatsapp),"_blank")}>Написать в WhatsApp</Button>
                   <Button variant="ghost" className="rounded-md" onClick={()=>window.open(`https://instagram.com/${(matched?.socials.instagram || "").replace("@", "")}`,"_blank")}>Открыть Instagram</Button>
+                  {matched?.socials?.group && (
+                    <Button variant="outline" className="rounded-md" onClick={()=>window.open(String(matched?.socials?.group),"_blank")}>
+                      Открыть группу
+                    </Button>
+                  )}
                 </CardFooter>
               </div>
             </div>
