@@ -1,14 +1,49 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { Loader2, Sparkles, Rocket, Check, Star, Instagram, Send, Phone, X } from "lucide-react";
+
+// ---- Встроенные минимальные UI-компоненты (чтобы не было Module not found) ----
+// Button
+type ButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "default" | "outline" | "ghost";
+  size?: "sm" | "md" | "lg";
+  asChild?: boolean;
+};
+function Button({ className = "", variant = "default", size = "md", ...props }: ButtonProps) {
+  const base = "inline-flex items-center justify-center rounded-md font-medium transition active:scale-[0.98]";
+  const sizes: Record<string, string> = { sm: "px-3 py-1.5 text-sm", md: "px-4 py-2 text-sm", lg: "px-6 py-3 text-base" };
+  const variants: Record<string, string> = {
+    default: "bg-black text-white hover:bg-black/90",
+    outline: "border border-slate-300 bg-white hover:bg-slate-50",
+    ghost: "hover:bg-slate-100"
+  };
+  return <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />;
+}
+// Card
+function Card(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`rounded-2xl border bg-white ${props.className||""}`} />; }
+function CardHeader(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`p-6 ${props.className||""}`} />; }
+function CardTitle(props: React.HTMLAttributes<HTMLHeadingElement>) { return <h3 {...props} className={`text-xl font-semibold ${props.className||""}`} />; }
+function CardDescription(props: React.HTMLAttributes<HTMLParagraphElement>) { return <p {...props} className={`text-sm text-muted-foreground ${props.className||""}`} />; }
+function CardContent(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`p-6 ${props.className||""}`} />; }
+function CardFooter(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`p-6 pt-0 ${props.className||""}`} />; }
+// Input
+function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input {...props} className={`w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${props.className||""}`} />;
+}
+// Textarea
+function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea {...props} className={`w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400 ${props.className||""}`} />;
+}
+// Checkbox
+type CheckboxProps = { checked?: boolean; onCheckedChange?: (checked: boolean)=>void } & Omit<React.InputHTMLAttributes<HTMLInputElement>,"type"|"onChange">;
+function Checkbox({checked, onCheckedChange, ...rest}: CheckboxProps) {
+  return <input type="checkbox" checked={!!checked} onChange={(e)=>onCheckedChange?.(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-black" {...rest}/>;
+}
+// Badge
+function Badge(props: React.HTMLAttributes<HTMLSpanElement>) { return <span {...props} className={`inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium ${props.className||""}`} />; }
+// Separator
+function Separator(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`h-px w-full bg-slate-200 ${props.className||""}`} />; }
 
 // ------------------------------------------------------------
 // Лендинг: «Найди своего идеального преподавателя английского»
@@ -73,7 +108,6 @@ const CURRENCIES = [
   { code: "EUR", symbol: "€", label: "Евро (€)" },
   { code: "KZT", symbol: "₸", label: "Тенге (₸)" },
   { code: "BYN", symbol: "Br", label: "Белорусский рубль (Br)" },
-  { code: "UAH", symbol: "₴", label: "Гривна (₴)" },
   { code: "TRY", symbol: "₺", label: "Турецкая лира (₺)" },
 ];
 
