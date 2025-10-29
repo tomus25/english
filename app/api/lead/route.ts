@@ -1,84 +1,73 @@
-// app/api/lead/route.ts
-import type { NextRequest } from "next/server";
+import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 
-// Экраним под parse_mode: "HTML"
-function escHTML(s: any) {
+const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || "").trim();
+const RAW_CHAT  = (process.env.TELEGRAM_CHAT_ID   || "").trim();
+
+function esc(s: unknown) {
   return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
-// Универсальная отправка: поддерживает ОДИН или НЕСКОЛЬКО чат-ид (через TELEGRAM_CHAT_IDS)
-async function sendToTelegram(token: string, chatIds: string[], textHTML: string) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const results: any[] = [];
-  for (const chat_id of chatIds) {
-    const r = await fetch(url, {
+async function resolveChatId(raw: string) {
+  // Если уже числовой (-100...), вернём как есть
+  if (/^-?\d+$/.test(raw)) return raw;
+  // Если @username канала/супергруппы — спросим у Telegram
+  if (raw.startsWith("@")) {
+    const r = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/getChat?chat_id=${encodeURIComponent(raw)}`);
+    const t = await r.text();
+    let j:any=null; try { j = JSON.parse(t); } catch {}
+    if (j?.ok && j?.result?.id) return String(j.result.id);
+    throw new Error(`getChat failed for ${raw}: ${t}`);
+  }
+  throw new Error(`Unsupported TELEGRAM_CHAT_ID format: "${raw}"`);
+}
+
+export async function POST(req: Request) {
+  try {
+    if (!BOT_TOKEN || !RAW_CHAT) {
+      return NextResponse.json({ ok:false, error:"Missing env TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID" }, { status: 500 });
+    }
+
+    const { studentName = "", description = "", preferredMethod = "telegram", contact = "", teacher = { name:"", telegram:"", group:"" } } = await req.json();
+
+    // 1) Разрешим @username → числовой id
+    const CHAT_ID = await resolveChatId(RAW_CHAT);
+
+    // 2) Сконструируем сообщение
+    const lines = [
+      `<b>🧑‍🎓 Новая заявка</b>`,
+      `Имя: <b>${esc(studentName) || "—"}</b>`,
+      `Описание: ${esc(description) || "—"}`,
+      `Связаться: <b>${esc(preferredMethod)}</b> — ${esc(contact) || "—"}`,
+      "",
+      `<b>👩‍🏫 Предложенный преподаватель</b>`,
+      `Имя: <b>${esc(teacher?.name)}</b>`,
+      teacher?.telegram ? `Telegram: ${esc(teacher.telegram)}` : "",
+      teacher?.group    ? `Группа: ${esc(teacher.group)}`       : "",
+    ].filter(Boolean).join("\n");
+
+    const resp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
+      headers: { "Content-Type":"application/json" },
       body: JSON.stringify({
-        chat_id,                 // для группы — numeric -100..., для канала можно @username
-        text: textHTML,
+        chat_id: CHAT_ID,
+        text: lines,
         parse_mode: "HTML",
         disable_web_page_preview: true,
       }),
     });
-    results.push(await r.json());
-  }
-  return results;
-}
 
-export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
+    const raw = await resp.text();
+    let json:any=null; try { json = JSON.parse(raw); } catch {}
 
-    // берём минимальные поля (как вы просили)
-    const {
-      studentName = "",
-      description = "",
-      preferredMethod = "",
-      contact = "",
-      teacher = {},
-    } = body || {};
-
-    // ENV: можно задать ОДИН чат (TELEGRAM_CHAT_ID) или НЕСКОЛЬКО (TELEGRAM_CHAT_IDS="id1,id2,@channel")
-    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
-    const CHAT_IDS = (process.env.TELEGRAM_CHAT_IDS || process.env.TELEGRAM_CHAT_ID || "")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean);
-
-    if (!BOT_TOKEN || CHAT_IDS.length === 0) {
-      return new Response(JSON.stringify({
-        ok: false,
-        error: "Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID(S) in Vercel env. Add and redeploy."
-      }), { status: 500, headers: { "Content-Type": "application/json" }});
+    if (!resp.ok || !json?.ok) {
+      console.error("sendMessage FAILED:", { status: resp.status, raw });
+      return NextResponse.json({ ok:false, error: json?.description || raw || "Failed to send to Telegram" }, { status: 502 });
     }
 
-    const lines: string[] = [];
-    lines.push(`<b>Новая заявка на преподавателя</b>`);
-    if (studentName)     lines.push(`<b>Имя:</b> ${escHTML(studentName)}`);
-    if (preferredMethod) lines.push(`<b>Связь:</b> ${escHTML(preferredMethod)} — ${escHTML(contact)}`);
-    if (description)     lines.push(`<b>Описание:</b> ${escHTML(description)}`);
-    if (teacher?.name)   lines.push(`<b>Преподаватель:</b> ${escHTML(teacher.name)}`);
-    if (teacher?.telegram) lines.push(`<b>TG (личный):</b> ${escHTML(teacher.telegram)}`);
-    if (teacher?.group)    lines.push(`<b>TG (группа):</b> ${escHTML(teacher.group)}`);
-
-    const results = await sendToTelegram(BOT_TOKEN, CHAT_IDS, lines.join("\n"));
-    const anyOk = results.some(r => r?.ok);
-
-    // ВСЕГДА возвращаем подробности от Telegram — вы увидите их в Network → Response
-    if (!anyOk) {
-      return new Response(JSON.stringify({ ok: false, error: results }), {
-        status: 500, headers: { "Content-Type": "application/json" }
-      });
-    }
-    return new Response(JSON.stringify({ ok: true, results }), {
-      status: 200, headers: { "Content-Type": "application/json" }
-    });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ ok:false, error: String(e?.message || e) }), {
-      status: 500, headers: { "Content-Type":"application/json" }
-    });
+    return NextResponse.json({ ok:true });
+  } catch (e:any) {
+    console.error("API error:", e?.message || e);
+    return NextResponse.json({ ok:false, error: e?.message || "Server error" }, { status: 500 });
   }
 }
