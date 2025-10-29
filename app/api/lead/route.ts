@@ -1,11 +1,11 @@
 // app/api/lead/route.ts
 import type { NextRequest } from "next/server";
 
-export const runtime = "nodejs"; // стабильнее, чем edge, для Telegram API
+export const runtime = "nodejs"; // важно: не edge
 
-// Экранируем спецсимволы для MarkdownV2
+// Экранируем спецсимволы под MarkdownV2
 function esc(s: any) {
-  return String(s ?? "").replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
+  return String(s ?? "").replace(/[_*[\]()~`>#+\\-=|{}.!]/g, "\\$&");
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     } = body || {};
 
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // для группы/канала — как правило -100xxxxxxxxxx
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // для группы/канала — обычно -100…
 
     if (!BOT_TOKEN || !CHAT_ID) {
       return new Response(
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({
-        chat_id: CHAT_ID, // пример: -1001234567890
+        chat_id: CHAT_ID,         // пример: -1001234567890
         text,
         parse_mode: "MarkdownV2",
         disable_web_page_preview: true,
@@ -65,6 +65,7 @@ export async function POST(req: NextRequest) {
 
     const data = await tgResp.json();
     if (!data.ok) {
+      // ВЕРНЁМ ТЕЛО ОШИБКИ Telegram, чтобы было видно в Network → Response
       return new Response(JSON.stringify({ ok: false, error: data }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
