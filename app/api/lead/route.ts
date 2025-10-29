@@ -1,9 +1,9 @@
 // app/api/lead/route.ts
 import type { NextRequest } from "next/server";
 
-export const runtime = "nodejs"; // важно: не edge, чтобы стабильнее ходить к Telegram API
+export const runtime = "nodejs"; // стабильнее, чем edge, для Telegram API
 
-// Экранируем MarkdownV2, чтобы спецсимволы не ломали форматирование
+// Экранируем спецсимволы для MarkdownV2
 function esc(s: any) {
   return String(s ?? "").replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
 }
@@ -22,10 +22,11 @@ export async function POST(req: NextRequest) {
       budget,
       currency,
       teacher = {},
+      cookieConsent,
     } = body || {};
 
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // id группы/канала/админ-чата, куда присылать заявки
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // для группы/канала — как правило -100xxxxxxxxxx
 
     if (!BOT_TOKEN || !CHAT_ID) {
       return new Response(
@@ -40,11 +41,12 @@ export async function POST(req: NextRequest) {
       goals.length ? `*Цели:* ${esc(goals.join(", "))}` : undefined,
       description ? `*Описание:* ${esc(description)}` : undefined,
       preferredMethod ? `*Связь:* ${esc(preferredMethod)} — ${esc(contact || email)}` : undefined,
-      budget != null && budget !== "" ? `*Бюджет:* ${esc(budget)} ${esc(currency || "")}` : undefined,
+      (budget ?? "") !== "" ? `*Бюджет:* ${esc(budget)} ${esc(currency || "")}` : undefined,
       `*Преподаватель:* ${esc(teacher.name || "—")}`,
       teacher.telegram ? `*TG (личный):* ${esc(teacher.telegram)}` : undefined,
       teacher.group ? `*TG (группа):* ${esc(teacher.group)}` : undefined,
       teacher.instagram ? `*Instagram:* ${esc(teacher.instagram)}` : undefined,
+      cookieConsent !== null ? `*Cookie согласие:* ${cookieConsent ? "да" : "нет"}` : undefined,
     ].filter(Boolean);
 
     const text = lines.join("\n");
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({
-        chat_id: CHAT_ID,           // для группы это отрицательный id вида -100xxxxxxxxxx
+        chat_id: CHAT_ID, // пример: -1001234567890
         text,
         parse_mode: "MarkdownV2",
         disable_web_page_preview: true,
