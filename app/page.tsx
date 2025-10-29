@@ -40,8 +40,16 @@ type CheckboxProps = { checked?: boolean; onCheckedChange?: (checked: boolean)=>
 function Checkbox({checked, onCheckedChange, ...rest}: CheckboxProps) {
   return <input type="checkbox" checked={!!checked} onChange={(e)=>onCheckedChange?.(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-black" {...rest}/>;
 }
-// Badge
-function Badge(props: React.HTMLAttributes<HTMLSpanElement>) { return <span {...props} className={`inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium ${props.className||""}`} />; }
+// Badge (поддержка variant="outline")
+type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & { variant?: "default" | "outline" };
+function Badge({ className = "", variant = "default", ...props }: BadgeProps) {
+  const base = "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium";
+  const variants: Record<string, string> = {
+    default: "border border-slate-200 bg-slate-50",
+    outline: "border border-slate-300 bg-transparent",
+  };
+  return <span {...props} className={`${base} ${variants[variant]} ${className}`} />;
+}
 // Separator
 function Separator(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`h-px w-full bg-slate-200 ${props.className||""}`} />; }
 
@@ -81,6 +89,10 @@ const DEV_TESTS = (() => {
   try {
     console.assert(formatWhatsAppHref("+7 980 729-11-07").endsWith("79807291107"), "WA format failed");
     console.assert(formatTelegramHref("@alena_346st").endsWith("alena_346st"), "TG format failed");
+    // Дополнительные проверки
+    console.assert(Array.isArray(CURRENCIES) && CURRENCIES.some(c=>c.code==='RUB'), 'Currencies must include RUB');
+    console.assert(!CURRENCIES.some(c=>c.code==='UAH'), 'UAH must be removed from currencies');
+    console.assert(Number("1200") === 1200, 'Budget numeric conversion failed');
   } catch {}
   return true;
 })();
