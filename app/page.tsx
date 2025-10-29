@@ -40,7 +40,7 @@ function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
 function Checkbox({checked, onCheckedChange, ...rest}: CheckboxProps) {
   return <input type="checkbox" checked={!!checked} onChange={(e)=>onCheckedChange?.(e.target.checked)} className="h-4 w-4 rounded border-slate-300 accent-black" {...rest}/>;
 }
-// Badge (поддержка variant="outline")
+// Badge
  type BadgeProps = React.HTMLAttributes<HTMLSpanElement> & { variant?: "default" | "outline" };
 function Badge({ className = "", variant = "default", ...props }: BadgeProps) {
   const base = "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium";
@@ -54,7 +54,6 @@ function Badge({ className = "", variant = "default", ...props }: BadgeProps) {
 function Separator(props: React.HTMLAttributes<HTMLDivElement>) { return <div {...props} className={`h-px w-full bg-slate-200 ${props.className||""}`} />; }
 
 // ----------------------------- КОНСТАНТЫ / ДАННЫЕ -----------------------------
-// Валюты (UAH удалена по просьбе)
 const CURRENCIES = [
   { code: "RUB", symbol: "₽", label: "Рубли (₽)" },
   { code: "USD", symbol: "$", label: "Доллары ($)" },
@@ -183,35 +182,35 @@ export default function LandingFindTeacher() {
   const [currency, setCurrency] = useState<string>("RUB");
 
   useEffect(() => {
-  // Загружаем только согласие на cookie, политику больше НЕ открываем автоматически
-  try {
-    const saved = typeof window !== 'undefined' ? localStorage.getItem('cookieConsent') : null;
-    setCookieConsent(saved === null ? false : saved === 'true');
-  } catch {
-    setCookieConsent(false);
-  }
-}, []);
+    try {
+      const saved = typeof window !== 'undefined' ? localStorage.getItem('cookieConsent') : null;
+      setCookieConsent(saved === null ? false : saved === 'true');
+    } catch {
+      setCookieConsent(false);
+    }
+  }, []);
 
   const seed = useMemo(() => `${name}|${goals.join(",")}|${desc}|${method}|${contact}|${budget}|${currency}`, [name, goals, desc, method, contact, budget, currency]);
   const teacher = useRandomTeacher(seed);
 
   const goalToggle = (key: string) => setGoals((prev) => (prev.includes(key) ? prev.filter((g) => g !== key) : [...prev, key]));
 
+  // ---------- ОБНОВЛЁННЫЙ onMatch: ТОЛЬКО ДАННЫЕ КЛИЕНТА ----------
   function onMatch() {
     if (!consent) return; // без согласия не отправляем
 
-    // Берём только минимально необходимое: имя, способ связи + контакт, и краткое описание
     const contactValue = method === "email" ? email : contact;
+
     const payload = {
       studentName: name || "",
+      goals,                              // ["speaking","travel",...]
       description: desc || "",
-      preferredMethod: method,
+      preferredMethod: method,            // "telegram" | "instagram" | "whatsapp" | "email"
       contact: contactValue || "",
-      teacher: {
-        name: teacher.name,
-        telegram: teacher.socials.telegram,
-        group: (teacher as any).socials?.group || "https://t.me/alena_346st",
-      },
+      email: email || "",
+      budget: budget ? Number(budget) : null,
+      currency,                           // "RUB" | "USD" | ...
+      cookieConsent,                      // true | false | null
     };
 
     setLoading(true);
@@ -232,12 +231,11 @@ export default function LandingFindTeacher() {
         let data: any = null;
         try { data = await resp.json(); } catch {}
         if (!resp.ok) {
-          // Показать причину прямо пользователю, чтобы понимать, что именно не так
-          const msg = data?.error?.description || JSON.stringify(data) || "Неизвестная ошибка Telegram";
+          const msg = data?.error || "Неизвестная ошибка Telegram";
           alert("Не удалось отправить в Telegram: " + msg);
           console.error("Telegram send failed", data);
         }
-        setMatched(teacher);
+        setMatched(teacher); // визуально показываем карточку (можешь убрать, если не нужна)
         scrollToMatch();
       })
       .catch((e) => {
@@ -252,12 +250,7 @@ export default function LandingFindTeacher() {
   const hero = (
     <div className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:pt-20 md:pb-20">
       <div className="absolute inset-0 -z-10 bg-gradient-to-b from-indigo-50 via-white to-white" />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="text-center"
-      >
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center">
         <Badge className="rounded-full px-3 py-1 text-sm">НАЙДИ СВОЕГО ПРЕПОДАВАТЕЛЯ</Badge>
         <h1 className="mt-6 text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-slate-900">
           Хочешь выучить английский
@@ -268,7 +261,6 @@ export default function LandingFindTeacher() {
           Подберём идеального преподавателя под твои цели и характер. Заполни мини-игру — и мы свяжемся с тобой в течение 24 часов.
         </p>
 
-        {/* CTA блок: на мобильных стакуем вертикально; политику уводим НИЖЕ и делаем тише */}
         <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
           <a href="#quiz">
             <Button size="lg" className="h-12 px-8 text-base font-semibold shadow-md">
@@ -280,7 +272,6 @@ export default function LandingFindTeacher() {
           Нажимая кнопку, вы принимаете <a href="#privacy" className="underline decoration-dotted underline-offset-4">Политику конфиденциальности</a>
         </p>
 
-        {/* Преимущества — делаем пиллы на светлом фоне, чтобы не "сливались" */}
         <div className="mt-10 flex flex-wrap items-center justify-center gap-3 text-sm">
           <span className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 text-slate-700">
             <Check className="h-4 w-4"/>Первое знакомство — бесплатно
@@ -359,11 +350,10 @@ export default function LandingFindTeacher() {
                 )}
                 {method === "email" && (
                   <div>
-                    <label className="mb-2 block text-sm font-medium">Твой Email</label>
+                    <label className="mb-2 block textсм font-medium">Твой Email</label>
                     <Input type="email" placeholder="you@mail.com" value={email} onChange={(e) => setEmail(e.target.value)} />
                   </div>
                 )}
-                {/* Бюджет + валюта */}
                 <div>
                   <label className="mb-2 block text-sm font-medium">Бюджет за урок</label>
                   <div className="flex gap-3">
@@ -376,7 +366,6 @@ export default function LandingFindTeacher() {
                 </div>
               </motion.div>
             </AnimatePresence>
-            {/* Согласие */}
             <label className="flex items-start gap-2 text-sm">
               <Checkbox checked={consent} onCheckedChange={(v)=>setConsent(!!v)} />
               <span>Я соглашаюсь с <a href="#privacy" onClick={(e)=>{e.preventDefault(); setShowPolicy(true);}} className="underline">Политикой конфиденциальности</a> и на обработку моих данных.</span>
@@ -469,27 +458,27 @@ export default function LandingFindTeacher() {
   );
 
   const policySection = (
-  <section id="privacy" className="mx-auto max-w-3xl px-4 pb-16">
-    <Card className="border-0 shadow-lg">
-      <CardHeader>
-        <CardTitle className="text-2xl">Политика конфиденциальности</CardTitle>
-        <CardDescription>Кратко: мы используем ваши данные только для связи и подбора преподавателя. Полную версию можно раскрыть ниже.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <details className="group">
-          <summary className="cursor-pointer select-none text-sm underline decoration-dotted underline-offset-4 group-open:opacity-60">
-            Показать полную политику
-          </summary>
-          <div className="mt-4">
-            <PolicyContent />
-          </div>
-        </details>
-      </CardContent>
-    </Card>
-  </section>
-);
+    <section id="privacy" className="mx-auto max-w-3xl px-4 pb-16">
+      <Card className="border-0 shadow-lg">
+        <CardHeader>
+          <CardTitle className="text-2xl">Политика конфиденциальности</CardTitle>
+          <CardDescription>Кратко: мы используем ваши данные только для связи и подбора преподавателя. Полную версию можно раскрыть ниже.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <details className="group">
+            <summary className="cursor-pointer select-none text-sm underline decoration-dotted underline-offset-4 group-open:opacity-60">
+              Показать полную политику
+            </summary>
+            <div className="mt-4">
+              <PolicyContent />
+            </div>
+          </details>
+        </CardContent>
+      </Card>
+    </section>
+  );
 
-const footer = (
+  const footer = (
     <footer className="border-t bg-white/70 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 md:flex-row">
         <div className="text-sm text-muted-foreground">© {new Date().getFullYear()} FindYourTeacher</div>
@@ -531,7 +520,6 @@ const footer = (
       {trust}
       {policySection}
       {footer}
-      
       {cookieBanner}
     </div>
   );
