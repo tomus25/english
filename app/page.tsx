@@ -100,8 +100,14 @@ const SAMPLE_TEACHERS = [
 ];
 
 // ----------------------------- УТИЛИТЫ / ТЕСТЫ -----------------------------
-function formatWhatsAppHref(num: string | undefined) { const d=(num||"").replace(/[^\d]/g,"\"); return d?`https://wa.me/${d}`:"#"; }
-function formatTelegramHref(handle: string | undefined) { const h=(handle||"").replace("@",""); return h?`https://t.me/${h}`:"#"; }
+function formatWhatsAppHref(num: string | undefined) {
+  const d = (num || "").replace(/[^\d]/g, "");
+  return d ? `https://wa.me/${d}` : "#";
+}
+function formatTelegramHref(handle: string | undefined) {
+  const h = (handle || "").replace("@", "");
+  return h ? `https://t.me/${h}` : "#";
+}
 
 const DEV_TESTS = (() => { try {
   console.assert(formatWhatsAppHref("+7 980 729-11-07").endsWith("79807291107"), "WA format failed");
