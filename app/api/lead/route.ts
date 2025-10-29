@@ -1,72 +1,100 @@
-// app/api/lead/route.ts
-import type { NextRequest } from "next/server";
-export const runtime = "nodejs";
+import { NextRequest, NextResponse } from "next/server";
 
-// Безопасное экранирование под HTML parse_mode
-function escHTML(s: any) {
-  return String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-}
+const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
+const CHAT_ID = process.env.TELEGRAM_CHAT_ID!;
 
-async function sendToTelegram(token: string, chatIds: string[], textHTML: string) {
-  const url = `https://api.telegram.org/bot${token}/sendMessage`;
-  const results: any[] = [];
-  for (const chat_id of chatIds) {
-    const resp = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      cache: "no-store",
-      body: JSON.stringify({ chat_id, text: textHTML, parse_mode: "HTML", disable_web_page_preview: true }),
-    });
-    results.push(await resp.json());
-  }
-  return results;
+// Простая экранизация для parse_mode: "HTML"
+function escapeHTML(s: unknown) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
+
+    // Мягкая валидация
     const {
-      studentName, goals = [], description, preferredMethod, contact, email,
-      budget, currency, teacher = {}, cookieConsent,
-    } = body || {};
+      studentName,
+      goals,
+      description,
+      preferredMethod,
+      contact,
+      email,
+      budget,
+      currency,
+      teacher,
+      cookieConsent,
+      // можно добавить ip/ua из заголовков, если нужно
+    } = body ?? {};
 
-    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    // Можно указать несколько получателей через TELEGRAM_CHAT_IDS="id1,id2,@channel"
-    const CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
-    const CHAT_IDS = (process.env.TELEGRAM_CHAT_IDS || CHAT_ID).split(",").map(s=>s.trim()).filter(Boolean);
-
-    if (!BOT_TOKEN || CHAT_IDS.length === 0) {
-      return new Response(JSON.stringify({
-        ok:false, error:"Missing TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID(S)"
-      }), { status: 500, headers: { "Content-Type":"application/json" }});
+    if (!Array.isArray(goals)) {
+      return NextResponse.json({ ok: false, error: "Invalid payload" }, { status: 400 });
     }
 
+    // Собираем текст для Telegram
     const lines: string[] = [];
-    lines.push(`<b>Новая заявка на преподавателя</b>`);
-    if (studentName) lines.push(`<b>Имя:</b> ${escHTML(studentName)}`);
-    if (goals.length) lines.push(`<b>Цели:</b> ${escHTML(goals.join(", "))}`);
-    if (description) lines.push(`<b>Описание:</b> ${escHTML(description)}`);
-    if (preferredMethod) lines.push(`<b>Связь:</b> ${escHTML(preferredMethod)} — ${escHTML(contact || email)}`);
-    if ((budget ?? "") !== "") lines.push(`<b>Бюджет:</b> ${escHTML(budget)} ${escHTML(currency || "")}`);
-    lines.push(`<b>Преподаватель:</b> ${escHTML(teacher?.name || "—")}`);
-    if (teacher?.telegram) lines.push(`<b>TG (личный):</b> ${escHTML(teacher.telegram)}`);
-    if (teacher?.group)    lines.push(`<b>TG (группа):</b> ${escHTML(teacher.group)}`);
-    if (teacher?.instagram)lines.push(`<b>Instagram:</b> ${escHTML(teacher.instagram)}`);
-    if (cookieConsent !== null && cookieConsent !== undefined)
-      lines.push(`<b>Cookie согласие:</b> ${cookieConsent ? "да" : "нет"}`);
-
-    const results = await sendToTelegram(BOT_TOKEN, CHAT_IDS, lines.join("\n"));
-    const anyOk = results.some(r => r?.ok);
-    if (!anyOk) {
-      // вернём подробности — будет видно в Network → Response
-      return new Response(JSON.stringify({ ok:false, error:results }), {
-        status: 500, headers: { "Content-Type":"application/json" }
-      });
+    lines.push(`<b>🧑‍🎓 Новая заявка</b>`);
+    lines.push(`Имя: <b>${escapeHTML(studentName)}</b>`);
+    lines.push(`Цели: ${escapeHTML(goals.join(", ")) || "—"}`);
+    lines.push(`Описание: ${escapeHTML(description) || "—"}`);
+    lines.push(`Связаться: <b>${escapeHTML(preferredMethod)}</b> — ${escapeHTML(contact || email || "—")}`);
+    lines.push(`Бюджет: ${budget != null && budget !== "" ? `<b>${escapeHTML(budget)} ${escapeHTML(currency)}</b>` : "—"}`);
+    lines.push(`Cookie consent: ${cookieConsent === true ? "✅" : cookieConsent === false ? "❌" : "—"}`);
+    if (teacher) {
+      lines.push("");
+      lines.push(`<b>👩‍🏫 Предложенный преподаватель</b>`);
+      lines.push(`Имя: <b>${escapeHTML(teacher.name)}</b>`);
+      if (teacher.telegram) lines.push(`Telegram: ${escapeHTML(teacher.telegram)}`);
+      if (teacher.whatsapp) lines.push(`WhatsApp: ${escapeHTML(teacher.whatsapp)}`);
+      if (teacher.instagram) lines.push(`Instagram: ${escapeHTML(teacher.instagram)}`);
+      if (teacher.group) lines.push(`Группа: ${escapeHTML(teacher.group)}`);
     }
-    return new Response(JSON.stringify({ ok:true, results }), { status: 200, headers: { "Content-Type":"application/json" }});
-  } catch (e:any) {
-    return new Response(JSON.stringify({ ok:false, error:String(e?.message || e) }), {
-      status: 500, headers: { "Content-Type":"application/json" }
+
+    const text = lines.join("\n");
+
+    // Отправляем в Telegram
+    const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id: CHAT_ID,
+        text,
+        parse_mode: "HTML",
+        // Можно добавить inline-кнопки для быстрого контакта
+        reply_markup: {
+          inline_keyboard: [
+            preferredMethod === "telegram" && contact
+              ? [{ text: "Написать в Telegram", url: `https://t.me/${String(contact).replace(/^@/, "")}` }]
+              : null,
+            preferredMethod === "instagram" && contact
+              ? [{ text: "Открыть Instagram", url: `https://instagram.com/${String(contact).replace(/^@/, "")}` }]
+              : null,
+            preferredMethod === "whatsapp" && contact
+              ? [{ text: "Написать в WhatsApp", url: `https://wa.me/${String(contact).replace(/[^\d]/g, "")}` }]
+              : null,
+            preferredMethod === "email" && email
+              ? [{ text: "Написать письмо", url: `mailto:${email}` }]
+              : null,
+          ].filter(Boolean),
+        },
+        disable_web_page_preview: true,
+      }),
     });
+
+    const tgJson = await tgResp.json();
+
+    if (!tgResp.ok || !tgJson.ok) {
+      console.error("Telegram error:", tgJson);
+      return NextResponse.json({ ok: false, error: "Failed to send to Telegram" }, { status: 502 });
+    }
+
+    // (Опционально) здесь же можешь сохранить в БД/CRM
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error(e);
+    return NextResponse.json({ ok: false, error: "Server error" }, { status: 500 });
   }
 }
