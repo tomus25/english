@@ -2,9 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* простые токены */
-:root {
-  --muted-foreground: #6b7280;
-}
+/* можно оставить наши утилиты */
+:root { --muted-foreground: #6b7280; }
 .text-muted-foreground { color: var(--muted-foreground); }
 .bg-accent { background-color: #f3f4f6; }
