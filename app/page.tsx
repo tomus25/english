@@ -84,6 +84,16 @@ function formatTelegramHref(handle: string | undefined) {
   return h ? `https://t.me/${h}` : "#";
 }
 
+// Популярные валюты для РФ и соседних рынков (дефолт — RUB)
+const CURRENCIES = [
+  { code: "RUB", symbol: "₽", label: "Рубли (₽)" },
+  { code: "USD", symbol: "$", label: "Доллары ($)" },
+  { code: "EUR", symbol: "€", label: "Евро (€)" },
+  { code: "KZT", symbol: "₸", label: "Тенге (₸)" },
+  { code: "BYN", symbol: "Br", label: "Белорусский рубль (Br)" },
+  { code: "TRY", symbol: "₺", label: "Турецкая лира (₺)" },
+];
+
 // ЛЁГКИЕ DEV-ТЕСТЫ
 const DEV_TESTS = (() => {
   try {
@@ -113,15 +123,6 @@ const CONTACT_METHODS = [
   { key: "email", label: "Email", icon: Star },
 ];
 
-// Популярные валюты для РФ и соседних рынков (дефолт — RUB)
-const CURRENCIES = [
-  { code: "RUB", symbol: "₽", label: "Рубли (₽)" },
-  { code: "USD", symbol: "$", label: "Доллары ($)" },
-  { code: "EUR", symbol: "€", label: "Евро (€)" },
-  { code: "KZT", symbol: "₸", label: "Тенге (₸)" },
-  { code: "BYN", symbol: "Br", label: "Белорусский рубль (Br)" },
-  { code: "TRY", symbol: "₺", label: "Турецкая лира (₺)" },
-];
 
 const SAMPLE_TEACHERS = [
   {
