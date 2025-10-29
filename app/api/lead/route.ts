@@ -1,11 +1,12 @@
 // app/api/lead/route.ts
 import type { NextRequest } from "next/server";
 
-export const runtime = "nodejs"; // важно: не edge
+export const runtime = "nodejs"; // не EDGE — стабильнее для Telegram API
 
-// Экранируем спецсимволы под MarkdownV2
+// Экранируем спецсимволы MarkdownV2.
+// ВАЖНО: дефис '-' поставлен в КОНЕЦ класса, чтобы не образовывал "диапазон".
 function esc(s: any) {
-  return String(s ?? "").replace(/[_*[\]()~`>#+\\-=|{}.!]/g, "\\$&");
+  return String(s ?? "").replace(/[_*\[\]()~`>#+=|{}.!-]/g, "\\$&");
 }
 
 export async function POST(req: NextRequest) {
@@ -26,7 +27,7 @@ export async function POST(req: NextRequest) {
     } = body || {};
 
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // для группы/канала — обычно -100…
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // для группы/канала — обычно -100...
 
     if (!BOT_TOKEN || !CHAT_ID) {
       return new Response(
@@ -51,35 +52,31 @@ export async function POST(req: NextRequest) {
 
     const text = lines.join("\n");
 
-    const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
+    const tg = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({
-        chat_id: CHAT_ID,         // пример: -1001234567890
+        chat_id: CHAT_ID, // пример: -1001234567890
         text,
         parse_mode: "MarkdownV2",
         disable_web_page_preview: true,
       }),
     });
 
-    const data = await tgResp.json();
+    const data = await tg.json();
     if (!data.ok) {
-      // ВЕРНЁМ ТЕЛО ОШИБКИ Telegram, чтобы было видно в Network → Response
       return new Response(JSON.stringify({ ok: false, error: data }), {
-        status: 500,
-        headers: { "Content-Type": "application/json" },
+        status: 500, headers: { "Content-Type": "application/json" },
       });
     }
 
     return new Response(JSON.stringify({ ok: true }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
+      status: 200, headers: { "Content-Type": "application/json" },
     });
   } catch (e: any) {
     return new Response(JSON.stringify({ ok: false, error: String(e?.message || e) }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
+      status: 500, headers: { "Content-Type": "application/json" },
     });
   }
 }
