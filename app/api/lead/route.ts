@@ -1,11 +1,11 @@
 // app/api/lead/route.ts
 import type { NextRequest } from "next/server";
 
-export const runtime = "nodejs"; // не edge, чтобы стабильнее было с fetch к ТГ
+export const runtime = "nodejs"; // важно: не edge, чтобы стабильнее ходить к Telegram API
 
+// Экранируем MarkdownV2, чтобы спецсимволы не ломали форматирование
 function esc(s: any) {
-  return String(s ?? "")
-    .replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&"); // экранируем MarkdownV2
+  return String(s ?? "").replace(/[_*[\]()~`>#+\-=|{}.!]/g, "\\$&");
 }
 
 export async function POST(req: NextRequest) {
@@ -24,9 +24,8 @@ export async function POST(req: NextRequest) {
       teacher = {},
     } = body || {};
 
-    // 1) Валидируем .env
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // группа/канал/админский чат
+    const CHAT_ID = process.env.TELEGRAM_CHAT_ID; // id группы/канала/админ-чата, куда присылать заявки
 
     if (!BOT_TOKEN || !CHAT_ID) {
       return new Response(
@@ -35,7 +34,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2) Собираем читаемое сообщение
     const lines = [
       `*Новая заявка на преподавателя*`,
       `*Имя:* ${esc(studentName)}`,
@@ -51,13 +49,12 @@ export async function POST(req: NextRequest) {
 
     const text = lines.join("\n");
 
-    // 3) Отправляем в Telegram (MarkdownV2)
     const tgResp = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
       body: JSON.stringify({
-        chat_id: CHAT_ID,
+        chat_id: CHAT_ID,           // для группы это отрицательный id вида -100xxxxxxxxxx
         text,
         parse_mode: "MarkdownV2",
         disable_web_page_preview: true,
@@ -65,9 +62,7 @@ export async function POST(req: NextRequest) {
     });
 
     const data = await tgResp.json();
-
     if (!data.ok) {
-      // вернём ошибку наружу, чтобы видеть её в логах Vercel
       return new Response(JSON.stringify({ ok: false, error: data }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
