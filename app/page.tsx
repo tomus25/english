@@ -183,9 +183,14 @@ export default function LandingFindTeacher() {
   const [currency, setCurrency] = useState<string>("RUB");
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.location.hash === '#privacy') setShowPolicy(true);
-    try { const saved = localStorage.getItem('cookieConsent'); setCookieConsent(saved===null?false:(saved==='true')); } catch { setCookieConsent(false); }
-  }, []);
+  // Загружаем только согласие на cookie, политику больше НЕ открываем автоматически
+  try {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('cookieConsent') : null;
+    setCookieConsent(saved === null ? false : saved === 'true');
+  } catch {
+    setCookieConsent(false);
+  }
+}, []);
 
   const seed = useMemo(() => `${name}|${goals.join(",")}|${desc}|${method}|${contact}|${budget}|${currency}`, [name, goals, desc, method, contact, budget, currency]);
   const teacher = useRandomTeacher(seed);
@@ -214,22 +219,47 @@ export default function LandingFindTeacher() {
 
   // ----- СЕКЦИИ -----
   const hero = (
-    <div className="relative mx-auto max-w-6xl px-4 pt-20 pb-16 lg:pt-24 lg:pb-24">
-      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-blue-50 to-white" />
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="text-center">
+    <div className="relative mx-auto max-w-6xl px-4 pt-16 pb-14 md:pt-20 md:pb-20">
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-indigo-50 via-white to-white" />
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-center"
+      >
         <Badge className="rounded-full px-3 py-1 text-sm">НАЙДИ СВОЕГО ПРЕПОДАВАТЕЛЯ</Badge>
-        <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight md:text-6xl">
-          Хочешь выучить английский <span className="inline-flex items-center gap-2">легко <Sparkles className="h-7 w-7" /></span> и с удовольствием?
+        <h1 className="mt-6 text-4xl md:text-6xl font-extrabold leading-tight tracking-tight text-slate-900">
+          Хочешь выучить английский
+          <span className="inline-flex items-center gap-2"> легко <Sparkles className="h-7 w-7" /></span>
+          и с удовольствием?
         </h1>
-        <p className="mx-auto mt-5 max-w-2xl text-lg text-muted-foreground">Подберём идеального преподавателя под твои цели и характер. Заполни мини-игру — и мы свяжемся с тобой в течение 24 часов.</p>
-        <div className="mt-8 flex justify-center gap-3">
-          <a href="#quiz"><Button size="lg" className="h-12 px-8 text-base font-semibold">Найти моего преподавателя</Button></a>
-          <a href="#privacy" onClick={(e)=>{e.preventDefault(); setShowPolicy(true);}} className="inline-flex items-center text-sm underline text-muted-foreground hover:text-foreground">Политика конфиденциальности</a>
+        <p className="mx-auto mt-5 max-w-2xl text-lg text-slate-600">
+          Подберём идеального преподавателя под твои цели и характер. Заполни мини-игру — и мы свяжемся с тобой в течение 24 часов.
+        </p>
+
+        {/* CTA блок: на мобильных стакуем вертикально; политику уводим НИЖЕ и делаем тише */}
+        <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <a href="#quiz">
+            <Button size="lg" className="h-12 px-8 text-base font-semibold shadow-md">
+              Найти моего преподавателя
+            </Button>
+          </a>
         </div>
-        <div className="mt-8 flex items-center justify-center gap-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2"><Check className="h-4 w-4"/>Первое знакомство — бесплатно</div>
-          <div className="flex items-center gap-2"><Check className="h-4 w-4"/>Подбор за 24 часа</div>
-          <div className="flex items-center gap-2"><Check className="h-4 w-4"/>Сертифицированные преподаватели</div>
+        <p className="mt-3 text-xs text-slate-500">
+          Нажимая кнопку, вы принимаете <a href="#privacy" className="underline decoration-dotted underline-offset-4">Политику конфиденциальности</a>
+        </p>
+
+        {/* Преимущества — делаем пиллы на светлом фоне, чтобы не "сливались" */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-sm">
+          <span className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 text-slate-700">
+            <Check className="h-4 w-4"/>Первое знакомство — бесплатно
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 text-slate-700">
+            <Check className="h-4 w-4"/>Подбор за 24 часа
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border bg-white px-3 py-1 text-slate-700">
+            <Check className="h-4 w-4"/>Сертифицированные преподаватели
+          </span>
         </div>
       </motion.div>
     </div>
@@ -402,7 +432,28 @@ export default function LandingFindTeacher() {
     </section>
   );
 
-  const footer = (
+  const policySection = (
+  <section id="privacy" className="mx-auto max-w-3xl px-4 pb-16">
+    <Card className="border-0 shadow-lg">
+      <CardHeader>
+        <CardTitle className="text-2xl">Политика конфиденциальности</CardTitle>
+        <CardDescription>Кратко: мы используем ваши данные только для связи и подбора преподавателя. Полную версию можно раскрыть ниже.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <details className="group">
+          <summary className="cursor-pointer select-none text-sm underline decoration-dotted underline-offset-4 group-open:opacity-60">
+            Показать полную политику
+          </summary>
+          <div className="mt-4">
+            <PolicyContent />
+          </div>
+        </details>
+      </CardContent>
+    </Card>
+  </section>
+);
+
+const footer = (
     <footer className="border-t bg-white/70 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 md:flex-row">
         <div className="text-sm text-muted-foreground">© {new Date().getFullYear()} FindYourTeacher</div>
@@ -442,8 +493,9 @@ export default function LandingFindTeacher() {
       {quiz}
       {match}
       {trust}
+      {policySection}
       {footer}
-      {policyModal}
+      
       {cookieBanner}
     </div>
   );
